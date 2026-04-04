@@ -11,6 +11,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\JobPositionController;
 use App\Http\Controllers\CandidateController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\AnalyticsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/test', function () {
@@ -70,9 +71,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Accounting
     Route::prefix('accounting')->group(function () {
-        Route::get('/stats',            [TransactionController::class, 'stats']);
-        Route::get('/monthly-report',   [TransactionController::class, 'monthlyReport']);
+        Route::get('/stats',          [TransactionController::class, 'stats']);
+        Route::get('/monthly-report', [TransactionController::class, 'monthlyReport']);
         Route::apiResource('transactions', TransactionController::class);
+    });
+
+    // Analytics
+    Route::prefix('analytics')->group(function () {
+        Route::get('/overview',         [AnalyticsController::class, 'overview']);
+        Route::get('/sales-chart',      [AnalyticsController::class, 'salesChart']);
+        Route::get('/expenses-chart',   [AnalyticsController::class, 'expensesChart']);
+        Route::get('/top-products',     [AnalyticsController::class, 'topProducts']);
+        Route::get('/top-customers',    [AnalyticsController::class, 'topCustomers']);
+        Route::get('/order-status',     [AnalyticsController::class, 'orderStatusChart']);
+        Route::get('/inventory-chart',  [AnalyticsController::class, 'inventoryChart']);
     });
 
 });
