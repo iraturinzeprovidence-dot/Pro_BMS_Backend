@@ -81,21 +81,21 @@ class AnalyticsController extends Controller
         return response()->json($products);
     }
 
-    public function topCustomers()
-    {
-        $customers = Order::selectRaw('
-                customers.name,
-                COUNT(orders.id)  as total_orders,
-                SUM(orders.total) as total_spent
-            ')
-            ->join('customers', 'orders.customer_id', '=', 'customers.id')
-            ->groupBy('customers.id', 'customers.name')
-            ->orderBy('total_spent', 'desc')
-            ->limit(5)
-            ->get();
+public function topCustomers()
+{
+    $customers = Order::selectRaw('
+            COALESCE(customers.name, "Walk-in Customer") as name,
+            COUNT(orders.id)  as total_orders,
+            SUM(orders.total) as total_spent
+        ')
+        ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
+        ->groupBy('orders.customer_id', 'customers.name')
+        ->orderBy('total_spent', 'desc')
+        ->limit(5)
+        ->get();
 
-        return response()->json($customers);
-    }
+    return response()->json($customers);
+}
 
     public function orderStatusChart()
     {
@@ -106,12 +106,17 @@ class AnalyticsController extends Controller
         return response()->json($statuses);
     }
 
-    public function inventoryChart()
-    {
-        $categories = \App\Models\Category::withCount('products')
-            ->having('products_count', '>', 0)
-            ->get(['name', 'products_count']);
+public function inventoryChart()
+{
+    $categories = \App\Models\Category::withCount('products')->get(['name', 'id']);
 
-        return response()->json($categories);
-    }
+    $result = $categories->map(function ($cat) {
+        return [
+            'name'           => $cat->name,
+            'products_count' => $cat->products_count,
+        ];
+    })->filter(fn($c) => $c['products_count'] > 0)->values();
+
+    return response()->json($result);
+}
 }

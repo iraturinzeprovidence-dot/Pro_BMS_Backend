@@ -86,6 +86,15 @@ public function hire(Candidate $candidate)
         'hire_date'  => 'required|date',
     ]);
 
+    // Check if employee with same email already exists
+    $existing = Employee::where('email', $candidate->email)->first();
+
+    if ($existing) {
+        return response()->json([
+            'message' => 'An employee with this email already exists: ' . $candidate->email
+        ], 422);
+    }
+
     $employee = Employee::create([
         'employee_number' => 'EMP-' . strtoupper(uniqid()),
         'first_name'      => $candidate->first_name,
@@ -98,7 +107,6 @@ public function hire(Candidate $candidate)
         'hire_date'       => $request->hire_date,
         'status'          => 'active',
     ]);
-    Mail::to($employee->email)->send(new CandidateHiredMail($employee));
 
     $candidate->update(['status' => 'hired']);
 
@@ -107,8 +115,10 @@ public function hire(Candidate $candidate)
             ?->update(['status' => 'closed']);
     }
 
+    Mail::to($employee->email)->send(new CandidateHiredMail($employee));
+
     return response()->json([
-        'message'  => 'Candidate hired and job position closed successfully',
+        'message'  => 'Candidate hired and added as employee successfully',
         'employee' => $employee,
     ], 201);
 }

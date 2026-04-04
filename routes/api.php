@@ -1,5 +1,5 @@
 <?php
-
+use App\Http\Controllers\PdfController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductController;
@@ -96,11 +96,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{user}', [UserController::class, 'destroy']);
         Route::get('/stats',     [UserController::class, 'stats']);
     });
-    // PDF Export
-    Route::prefix('pdf')->middleware('role:admin,manager')->group(function () {
-        Route::get('/order/{order}',   [PdfController::class, 'exportOrder']);
-        Route::get('/transactions',    [PdfController::class, 'exportTransactions']);
-        Route::get('/employees',       [PdfController::class, 'exportEmployees']);
-    });
+// PDF Export
+Route::prefix('pdf')->middleware('role:admin,manager')->group(function () {
+    Route::get('/order/{order}',  [PdfController::class, 'exportOrder']);
+    Route::get('/transactions',   [PdfController::class, 'exportTransactions']);
+    Route::get('/employees',      [PdfController::class, 'exportEmployees']);
+});
 
 });

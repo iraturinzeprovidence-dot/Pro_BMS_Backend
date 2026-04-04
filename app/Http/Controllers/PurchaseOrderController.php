@@ -104,28 +104,33 @@ class PurchaseOrderController extends Controller
         return response()->json($purchaseOrder);
     }
 
-    public function update(Request $request, PurchaseOrder $purchaseOrder)
-    {
-        $request->validate([
-            'status'         => 'required|in:draft,sent,received,cancelled',
-            'payment_status' => 'required|in:unpaid,paid,partial',
-        ]);
+public function update(Request $request, PurchaseOrder $purchaseOrder)
+{
+    $request->validate([
+        'status'         => 'required|in:draft,sent,received,cancelled',
+        'payment_status' => 'required|in:unpaid,paid,partial',
+    ]);
 
-        if ($request->status === 'received' && $purchaseOrder->status !== 'received') {
-            foreach ($purchaseOrder->items as $item) {
-                if ($item->product_id) {
-                    Product::find($item->product_id)?->increment('stock', $item->quantity);
-                }
+    if ($request->status === 'received' && $purchaseOrder->status !== 'received') {
+        $purchaseOrder->load('items');
+        foreach ($purchaseOrder->items as $item) {
+            if ($item->product_id) {
+                \App\Models\Product::where('id', $item->product_id)
+                    ->increment('stock', $item->quantity);
             }
         }
-
-        $purchaseOrder->update($request->only('status', 'payment_status'));
-
-        return response()->json([
-            'message' => 'Purchase order updated successfully',
-            'order'   => $purchaseOrder,
-        ]);
     }
+
+    $purchaseOrder->update([
+        'status'         => $request->status,
+        'payment_status' => $request->payment_status,
+    ]);
+
+    return response()->json([
+        'message' => 'Purchase order updated successfully',
+        'order'   => $purchaseOrder->fresh(),
+    ]);
+}
 
     public function destroy(PurchaseOrder $purchaseOrder)
     {
