@@ -7,6 +7,8 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Mail\PurchaseOrderMail;
+use Illuminate\Support\Facades\Mail;
 
 class PurchaseOrderController extends Controller
 {
@@ -79,6 +81,9 @@ class PurchaseOrderController extends Controller
             }
 
             DB::commit();
+            if ($po->supplier?->email) {
+    Mail::to($po->supplier->email)->send(new PurchaseOrderMail($po));
+}
 
             $po->load('supplier', 'items');
 

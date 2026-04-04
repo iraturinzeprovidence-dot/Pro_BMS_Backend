@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Candidate;
 use App\Models\Employee;
 use Illuminate\Http\Request;
+use App\Mail\CandidateHiredMail;
+use Illuminate\Support\Facades\Mail;
 
 class CandidateController extends Controller
 {
@@ -96,6 +98,7 @@ public function hire(Candidate $candidate)
         'hire_date'       => $request->hire_date,
         'status'          => 'active',
     ]);
+    Mail::to($employee->email)->send(new CandidateHiredMail($employee));
 
     $candidate->update(['status' => 'hired']);
 

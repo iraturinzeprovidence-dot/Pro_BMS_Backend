@@ -7,6 +7,8 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Mail\OrderConfirmationMail;
+use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
@@ -84,6 +86,9 @@ class OrderController extends Controller
             }
 
             DB::commit();
+            if ($order->customer?->email) {
+    Mail::to($order->customer->email)->send(new OrderConfirmationMail($order));
+}
 
             $order->load('customer', 'items');
 

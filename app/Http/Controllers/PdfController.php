@@ -1,0 +1,281 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Order;
+use App\Models\Transaction;
+use App\Models\Employee;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
+
+class PdfController extends Controller
+{
+    public function exportOrder(Order $order)
+    {
+        $order->load('customer', 'items', 'user');
+
+        $html = '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; font-size: 13px; color: #333; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .header h1 { color: #2563eb; margin: 0; font-size: 24px; }
+                .header p { color: #888; margin: 4px 0; }
+                .section { margin-bottom: 20px; }
+                .section h3 { font-size: 14px; color: #555; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+                .grid { display: flex; gap: 40px; }
+                .grid div { flex: 1; }
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                th { background: #f3f4f6; text-align: left; padding: 8px 12px; font-size: 12px; color: #555; }
+                td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
+                .totals { text-align: right; margin-top: 20px; }
+                .totals table { width: 280px; margin-left: auto; }
+                .totals td { padding: 4px 12px; }
+                .total-row { font-weight: bold; font-size: 15px; border-top: 2px solid #333; }
+                .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+                .badge-green { background: #dcfce7; color: #166534; }
+                .badge-yellow { background: #fef9c3; color: #854d0e; }
+                .badge-red { background: #fee2e2; color: #991b1b; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Pro_BMS</h1>
+                <p>Business Management System</p>
+                <p style="margin-top:16px; font-size:18px; font-weight:bold;">Order Invoice</p>
+            </div>
+
+            <div class="section">
+                <div class="grid">
+                    <div>
+                        <h3>Order Details</h3>
+                        <p><strong>Order #:</strong> ' . $order->order_number . '</p>
+                        <p><strong>Date:</strong> ' . $order->created_at->format('M d, Y') . '</p>
+                        <p><strong>Status:</strong> ' . ucfirst($order->status) . '</p>
+                        <p><strong>Payment:</strong> ' . ucfirst($order->payment_status) . '</p>
+                        <p><strong>Method:</strong> ' . ucfirst(str_replace('_', ' ', $order->payment_method)) . '</p>
+                    </div>
+                    <div>
+                        <h3>Customer</h3>
+                        <p><strong>Name:</strong> ' . ($order->customer?->name ?? 'Walk-in Customer') . '</p>
+                        <p><strong>Email:</strong> ' . ($order->customer?->email ?? '—') . '</p>
+                        <p><strong>Phone:</strong> ' . ($order->customer?->phone ?? '—') . '</p>
+                        <p><strong>City:</strong> ' . ($order->customer?->city ?? '—') . '</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Order Items</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Qty</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+
+        foreach ($order->items as $item) {
+            $html .= '
+                        <tr>
+                            <td>' . $item->product_name . '</td>
+                            <td>' . $item->quantity . '</td>
+                            <td>$' . number_format($item->unit_price, 2) . '</td>
+                            <td>$' . number_format($item->total, 2) . '</td>
+                        </tr>';
+        }
+
+        $html .= '
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="totals">
+                <table>
+                    <tr><td>Subtotal</td><td>$' . number_format($order->subtotal, 2) . '</td></tr>
+                    <tr><td>Tax</td><td>$' . number_format($order->tax, 2) . '</td></tr>
+                    <tr><td>Discount</td><td>-$' . number_format($order->discount, 2) . '</td></tr>
+                    <tr class="total-row"><td>Total</td><td>$' . number_format($order->total, 2) . '</td></tr>
+                </table>
+            </div>
+
+            ' . ($order->notes ? '<div class="section"><h3>Notes</h3><p>' . $order->notes . '</p></div>' : '') . '
+
+            <p style="text-align:center; color:#aaa; font-size:11px; margin-top:40px;">
+                Generated by Pro_BMS — ' . now()->format('M d, Y H:i') . '
+            </p>
+        </body>
+        </html>';
+
+        $pdf = Pdf::loadHTML($html);
+        return $pdf->download('order-' . $order->order_number . '.pdf');
+    }
+
+    public function exportTransactions(Request $request)
+    {
+        $query = Transaction::with('user');
+
+        if ($request->from_date) {
+            $query->whereDate('date', '>=', $request->from_date);
+        }
+        if ($request->to_date) {
+            $query->whereDate('date', '<=', $request->to_date);
+        }
+
+        $transactions = $query->orderBy('date', 'desc')->get();
+        $totalIncome  = $transactions->where('type', 'income')->sum('amount');
+        $totalExpense = $transactions->where('type', 'expense')->sum('amount');
+
+        $html = '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; font-size: 12px; color: #333; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .header h1 { color: #2563eb; margin: 0; font-size: 22px; }
+                table { width: 100%; border-collapse: collapse; }
+                th { background: #f3f4f6; text-align: left; padding: 8px 10px; font-size: 11px; color: #555; }
+                td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; }
+                .summary { display: flex; gap: 20px; margin-bottom: 20px; }
+                .summary div { flex: 1; background: #f9fafb; padding: 12px; border-radius: 8px; text-align: center; }
+                .summary .label { font-size: 11px; color: #888; }
+                .summary .value { font-size: 18px; font-weight: bold; margin-top: 4px; }
+                .income { color: #16a34a; }
+                .expense { color: #dc2626; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Pro_BMS</h1>
+                <p style="color:#888;">Transaction Report</p>
+                ' . ($request->from_date ? '<p style="color:#888; font-size:11px;">' . $request->from_date . ' to ' . ($request->to_date ?? 'today') . '</p>' : '') . '
+            </div>
+
+            <div class="summary">
+                <div>
+                    <div class="label">Total Income</div>
+                    <div class="value income">$' . number_format($totalIncome, 2) . '</div>
+                </div>
+                <div>
+                    <div class="label">Total Expenses</div>
+                    <div class="value expense">$' . number_format($totalExpense, 2) . '</div>
+                </div>
+                <div>
+                    <div class="label">Net Profit</div>
+                    <div class="value" style="color:' . ($totalIncome - $totalExpense >= 0 ? '#2563eb' : '#dc2626') . '">
+                        $' . number_format($totalIncome - $totalExpense, 2) . '
+                    </div>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Reference</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Payment</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>';
+
+        foreach ($transactions as $t) {
+            $html .= '
+                    <tr>
+                        <td style="font-size:10px; color:#888;">' . $t->reference . '</td>
+                        <td style="color:' . ($t->type === 'income' ? '#16a34a' : '#dc2626') . '; font-weight:bold;">' . ucfirst($t->type) . '</td>
+                        <td>' . $t->category . '</td>
+                        <td style="color:' . ($t->type === 'income' ? '#16a34a' : '#dc2626') . ';">
+                            ' . ($t->type === 'income' ? '+' : '-') . '$' . number_format($t->amount, 2) . '
+                        </td>
+                        <td>' . ucfirst(str_replace('_', ' ', $t->payment_method)) . '</td>
+                        <td>' . \Carbon\Carbon::parse($t->date)->format('M d, Y') . '</td>
+                    </tr>';
+        }
+
+        $html .= '
+                </tbody>
+            </table>
+
+            <p style="text-align:center; color:#aaa; font-size:10px; margin-top:30px;">
+                Generated by Pro_BMS — ' . now()->format('M d, Y H:i') . '
+            </p>
+        </body>
+        </html>';
+
+        $pdf = Pdf::loadHTML($html);
+        return $pdf->download('transactions-report.pdf');
+    }
+
+    public function exportEmployees()
+    {
+        $employees = Employee::orderBy('department')->get();
+
+        $html = '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; font-size: 12px; color: #333; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .header h1 { color: #2563eb; margin: 0; font-size: 22px; }
+                table { width: 100%; border-collapse: collapse; }
+                th { background: #f3f4f6; text-align: left; padding: 8px 10px; font-size: 11px; color: #555; }
+                td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Pro_BMS</h1>
+                <p style="color:#888;">Employee Report — ' . $employees->count() . ' employees</p>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Emp #</th>
+                        <th>Name</th>
+                        <th>Department</th>
+                        <th>Job Title</th>
+                        <th>Salary</th>
+                        <th>Hire Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>';
+
+        foreach ($employees as $e) {
+            $html .= '
+                    <tr>
+                        <td style="font-size:10px; color:#888;">' . $e->employee_number . '</td>
+                        <td>' . $e->first_name . ' ' . $e->last_name . '</td>
+                        <td>' . $e->department . '</td>
+                        <td>' . $e->job_title . '</td>
+                        <td>$' . number_format($e->salary, 2) . '</td>
+                        <td>' . \Carbon\Carbon::parse($e->hire_date)->format('M d, Y') . '</td>
+                        <td>' . ucfirst($e->status) . '</td>
+                    </tr>';
+        }
+
+        $html .= '
+                </tbody>
+            </table>
+
+            <p style="text-align:center; color:#aaa; font-size:10px; margin-top:30px;">
+                Generated by Pro_BMS — ' . now()->format('M d, Y H:i') . '
+            </p>
+        </body>
+        </html>';
+
+        $pdf = Pdf::loadHTML($html);
+        return $pdf->download('employees-report.pdf');
+    }
+}
