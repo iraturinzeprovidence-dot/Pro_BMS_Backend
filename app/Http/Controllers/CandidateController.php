@@ -73,37 +73,42 @@ class CandidateController extends Controller
         return response()->json(['message' => 'Candidate deleted successfully']);
     }
 
-    public function hire(Candidate $candidate)
-    {
-        $request = request();
+public function hire(Candidate $candidate)
+{
+    $request = request();
 
-        $request->validate([
-            'department' => 'required|string',
-            'job_title'  => 'required|string',
-            'salary'     => 'required|numeric|min:0',
-            'hire_date'  => 'required|date',
-        ]);
+    $request->validate([
+        'department' => 'required|string',
+        'job_title'  => 'required|string',
+        'salary'     => 'required|numeric|min:0',
+        'hire_date'  => 'required|date',
+    ]);
 
-        $employee = Employee::create([
-            'employee_number' => 'EMP-' . strtoupper(uniqid()),
-            'first_name'      => $candidate->first_name,
-            'last_name'       => $candidate->last_name,
-            'email'           => $candidate->email,
-            'phone'           => $candidate->phone,
-            'department'      => $request->department,
-            'job_title'       => $request->job_title,
-            'salary'          => $request->salary,
-            'hire_date'       => $request->hire_date,
-            'status'          => 'active',
-        ]);
+    $employee = Employee::create([
+        'employee_number' => 'EMP-' . strtoupper(uniqid()),
+        'first_name'      => $candidate->first_name,
+        'last_name'       => $candidate->last_name,
+        'email'           => $candidate->email,
+        'phone'           => $candidate->phone,
+        'department'      => $request->department,
+        'job_title'       => $request->job_title,
+        'salary'          => $request->salary,
+        'hire_date'       => $request->hire_date,
+        'status'          => 'active',
+    ]);
 
-        $candidate->update(['status' => 'hired']);
+    $candidate->update(['status' => 'hired']);
 
-        return response()->json([
-            'message'  => 'Candidate hired and added as employee successfully',
-            'employee' => $employee,
-        ], 201);
+    if ($candidate->job_position_id) {
+        \App\Models\JobPosition::find($candidate->job_position_id)
+            ?->update(['status' => 'closed']);
     }
+
+    return response()->json([
+        'message'  => 'Candidate hired and job position closed successfully',
+        'employee' => $employee,
+    ], 201);
+}
 
     public function stats()
     {

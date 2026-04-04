@@ -10,6 +10,7 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\JobPositionController;
 use App\Http\Controllers\CandidateController;
+use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/test', function () {
@@ -57,14 +58,21 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // HR
     Route::prefix('hr')->group(function () {
-        Route::get('/stats',                          [EmployeeController::class,    'stats']);
-        Route::get('/departments',                    [EmployeeController::class,    'departments']);
-        Route::get('/job-stats',                      [JobPositionController::class, 'stats']);
-        Route::get('/candidate-stats',                [CandidateController::class,   'stats']);
-        Route::post('/candidates/{candidate}/hire',   [CandidateController::class,   'hire']);
-        Route::apiResource('employees',               EmployeeController::class);
-        Route::apiResource('job-positions',           JobPositionController::class);
-        Route::apiResource('candidates',              CandidateController::class);
+        Route::get('/stats',                        [EmployeeController::class,    'stats']);
+        Route::get('/departments',                  [EmployeeController::class,    'departments']);
+        Route::get('/job-stats',                    [JobPositionController::class, 'stats']);
+        Route::get('/candidate-stats',              [CandidateController::class,   'stats']);
+        Route::post('/candidates/{candidate}/hire', [CandidateController::class,   'hire']);
+        Route::apiResource('employees',             EmployeeController::class);
+        Route::apiResource('job-positions',         JobPositionController::class);
+        Route::apiResource('candidates',            CandidateController::class);
+    });
+
+    // Accounting
+    Route::prefix('accounting')->group(function () {
+        Route::get('/stats',            [TransactionController::class, 'stats']);
+        Route::get('/monthly-report',   [TransactionController::class, 'monthlyReport']);
+        Route::apiResource('transactions', TransactionController::class);
     });
 
 });
