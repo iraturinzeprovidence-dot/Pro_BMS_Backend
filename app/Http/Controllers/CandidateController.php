@@ -154,13 +154,15 @@ public function hire(Candidate $candidate)
     ], 201);
 }
 
-    public function stats()
-    {
-        return response()->json([
-            'total_candidates'      => Candidate::count(),
-            'applied_candidates'    => Candidate::where('status', 'applied')->count(),
-            'hired_candidates'      => Candidate::where('status', 'hired')->count(),
-            'rejected_candidates'   => Candidate::where('status', 'rejected')->count(),
-        ]);
-    }
+public function stats()
+{
+    return response()->json([
+        'total_candidates'        => Candidate::count(),
+        'applied_candidates'      => Candidate::where('status', 'applied')->count(),
+        'reviewing_candidates'    => Candidate::where('status', 'reviewing')->count(),
+        'interviewed_candidates'  => Candidate::where('status', 'interviewed')->count(),
+        'hired_candidates'        => Candidate::where('status', 'hired')->count(),
+        'rejected_candidates'     => Candidate::where('status', 'rejected')->count(),
+    ]);
+}
 }

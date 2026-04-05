@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/test', function () {
     return response()->json([
-        'message' => 'Pro_BMS API is working!',
+        'message' => 'Pro BMS API is working!',
         'status'  => 'success',
     ]);
 });

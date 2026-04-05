@@ -115,16 +115,16 @@ class EmployeeController extends Controller
         return response()->json(['message' => 'Employee deleted successfully']);
     }
 
-    public function stats()
-    {
-        return response()->json([
-            'total_employees'      => Employee::count(),
-            'active_employees'     => Employee::where('status', 'active')->count(),
-            'terminated_employees' => Employee::where('status', 'terminated')->count(),
-            'departments'          => Employee::distinct()->pluck('department')->count(),
-        ]);
-    }
-
+public function stats()
+{
+    return response()->json([
+        'total_employees'      => Employee::count(),
+        'active_employees'     => Employee::where('status', 'active')->count(),
+        'inactive_employees'   => Employee::where('status', 'inactive')->count(),
+        'terminated_employees' => Employee::where('status', 'terminated')->count(),
+        'total_departments'    => Employee::distinct('department')->count('department'),
+    ]);
+}
     public function departments()
     {
         $departments = Employee::distinct()->pluck('department');
