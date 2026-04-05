@@ -7,8 +7,6 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Mail\PurchaseOrderMail;
-use Illuminate\Support\Facades\Mail;
 
 class PurchaseOrderController extends Controller
 {
@@ -81,9 +79,6 @@ class PurchaseOrderController extends Controller
             }
 
             DB::commit();
-            if ($po->supplier?->email) {
-    Mail::to($po->supplier->email)->send(new PurchaseOrderMail($po));
-}
 
             $po->load('supplier', 'items');
 
@@ -94,49 +89,54 @@ class PurchaseOrderController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Failed to create purchase order: ' . $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'Failed to create purchase order: ' . $e->getMessage()
+            ], 500);
         }
     }
 
-    public function show(PurchaseOrder $purchaseOrder)
-    {
-        $purchaseOrder->load('supplier', 'items.product', 'user');
-        return response()->json($purchaseOrder);
-    }
-
-public function update(Request $request, PurchaseOrder $purchaseOrder)
+public function show($id)
 {
+    $purchaseOrder = PurchaseOrder::findOrFail($id);
+    $purchaseOrder->load('supplier', 'items.product', 'user');
+    return response()->json($purchaseOrder);
+}
+
+public function update(Request $request, $id)
+{
+    $purchaseOrder = PurchaseOrder::findOrFail($id);
+
     $request->validate([
         'status'         => 'required|in:draft,sent,received,cancelled',
         'payment_status' => 'required|in:unpaid,paid,partial',
     ]);
 
+    // When marking as received — update product stock
     if ($request->status === 'received' && $purchaseOrder->status !== 'received') {
         $purchaseOrder->load('items');
         foreach ($purchaseOrder->items as $item) {
             if ($item->product_id) {
-                \App\Models\Product::where('id', $item->product_id)
+                Product::where('id', $item->product_id)
                     ->increment('stock', $item->quantity);
             }
         }
     }
 
-    $purchaseOrder->update([
-        'status'         => $request->status,
-        'payment_status' => $request->payment_status,
-    ]);
+    $purchaseOrder->status         = $request->status;
+    $purchaseOrder->payment_status = $request->payment_status;
+    $purchaseOrder->save();
 
     return response()->json([
         'message' => 'Purchase order updated successfully',
         'order'   => $purchaseOrder->fresh(),
     ]);
 }
-
-    public function destroy(PurchaseOrder $purchaseOrder)
-    {
-        $purchaseOrder->delete();
-        return response()->json(['message' => 'Purchase order deleted successfully']);
-    }
+public function destroy($id)
+{
+    $purchaseOrder = PurchaseOrder::findOrFail($id);
+    $purchaseOrder->delete();
+    return response()->json(['message' => 'Purchase order deleted successfully']);
+}
 
     public function stats()
     {
