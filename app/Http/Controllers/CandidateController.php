@@ -80,21 +80,22 @@ public function hire(Candidate $candidate)
     $request = request();
 
     $request->validate([
-        'department' => 'required|string',
-        'job_title'  => 'required|string',
-        'salary'     => 'required|numeric|min:0',
-        'hire_date'  => 'required|date',
+        'department'  => 'required|string',
+        'job_title'   => 'required|string',
+        'salary'      => 'required|numeric|min:0',
+        'hire_date'   => 'required|date',
+        'permissions' => 'nullable|array',
     ]);
 
     // Check if employee with same email already exists
     $existing = Employee::where('email', $candidate->email)->first();
-
     if ($existing) {
         return response()->json([
             'message' => 'An employee with this email already exists: ' . $candidate->email
         ], 422);
     }
 
+    // Create employee record
     $employee = Employee::create([
         'employee_number' => 'EMP-' . strtoupper(uniqid()),
         'first_name'      => $candidate->first_name,
@@ -106,19 +107,49 @@ public function hire(Candidate $candidate)
         'salary'          => $request->salary,
         'hire_date'       => $request->hire_date,
         'status'          => 'active',
+        'permissions'     => $request->permissions ?? [],
     ]);
 
+    // Auto-create user account for the employee
+    $existingUser = \App\Models\User::where('email', $candidate->email)->first();
+
+    if (!$existingUser) {
+        $role          = \App\Models\Role::where('name', 'employee')->first();
+        $tempPassword  = \Illuminate\Support\Str::random(10);
+
+        $user = \App\Models\User::create([
+            'name'     => $candidate->first_name . ' ' . $candidate->last_name,
+            'email'    => $candidate->email,
+            'password' => \Illuminate\Support\Facades\Hash::make($tempPassword),
+            'role_id'  => $role?->id,
+        ]);
+
+        // Link user to employee
+        $employee->update(['user_id' => $user->id]);
+
+        // Send welcome email with credentials
+        try {
+            Mail::to($employee->email)->send(
+                new \App\Mail\CandidateHiredMail($employee, $tempPassword)
+            );
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to send hire email: ' . $e->getMessage());
+        }
+    } else {
+        $employee->update(['user_id' => $existingUser->id]);
+    }
+
+    // Update candidate status
     $candidate->update(['status' => 'hired']);
 
+    // Close job position
     if ($candidate->job_position_id) {
         \App\Models\JobPosition::find($candidate->job_position_id)
             ?->update(['status' => 'closed']);
     }
 
-    Mail::to($employee->email)->send(new CandidateHiredMail($employee));
-
     return response()->json([
-        'message'  => 'Candidate hired and added as employee successfully',
+        'message'  => 'Candidate hired, employee created and login credentials sent by email!',
         'employee' => $employee,
     ], 201);
 }

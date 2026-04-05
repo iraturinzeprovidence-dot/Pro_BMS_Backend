@@ -13,12 +13,15 @@ class CandidateHiredMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public Employee $employee) {}
+    public function __construct(
+        public Employee $employee,
+        public ?string $tempPassword = null
+    ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Welcome to the Team — ' . $this->employee->first_name,
+            subject: 'Welcome to the Team — Your Login Credentials',
         );
     }
 

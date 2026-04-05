@@ -34,21 +34,32 @@ class EmployeeController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'first_name'      => 'required|string|max:255',
-            'last_name'       => 'required|string|max:255',
-            'email'           => 'required|email|unique:employees',
-            'phone'           => 'nullable|string|max:20',
-            'department'      => 'required|string|max:255',
-            'job_title'       => 'required|string|max:255',
-            'salary'          => 'required|numeric|min:0',
-            'hire_date'       => 'required|date',
-            'status'          => 'required|in:active,inactive,terminated',
-            'address'         => 'nullable|string',
+            'first_name'  => 'required|string|max:255',
+            'last_name'   => 'required|string|max:255',
+            'email'       => 'required|email|unique:employees',
+            'phone'       => 'nullable|string|max:20',
+            'department'  => 'required|string|max:255',
+            'job_title'   => 'required|string|max:255',
+            'salary'      => 'required|numeric|min:0',
+            'hire_date'   => 'required|date',
+            'status'      => 'required|in:active,inactive,terminated',
+            'address'     => 'nullable|string',
+            'permissions' => 'nullable|array',
         ]);
 
         $employee = Employee::create([
             'employee_number' => 'EMP-' . strtoupper(uniqid()),
-            ...$request->all(),
+            'first_name'      => $request->first_name,
+            'last_name'       => $request->last_name,
+            'email'           => $request->email,
+            'phone'           => $request->phone,
+            'department'      => $request->department,
+            'job_title'       => $request->job_title,
+            'salary'          => $request->salary,
+            'hire_date'       => $request->hire_date,
+            'status'          => $request->status,
+            'address'         => $request->address,
+            'permissions'     => $request->permissions ?? [],
         ]);
 
         return response()->json([
@@ -75,9 +86,22 @@ class EmployeeController extends Controller
             'hire_date'   => 'required|date',
             'status'      => 'required|in:active,inactive,terminated',
             'address'     => 'nullable|string',
+            'permissions' => 'nullable|array',
         ]);
 
-        $employee->update($request->all());
+        $employee->update([
+            'first_name'  => $request->first_name,
+            'last_name'   => $request->last_name,
+            'email'       => $request->email,
+            'phone'       => $request->phone,
+            'department'  => $request->department,
+            'job_title'   => $request->job_title,
+            'salary'      => $request->salary,
+            'hire_date'   => $request->hire_date,
+            'status'      => $request->status,
+            'address'     => $request->address,
+            'permissions' => $request->permissions ?? $employee->permissions ?? [],
+        ]);
 
         return response()->json([
             'message'  => 'Employee updated successfully',
@@ -105,5 +129,17 @@ class EmployeeController extends Controller
     {
         $departments = Employee::distinct()->pluck('department');
         return response()->json($departments);
+    }
+
+    public function myProfile(Request $request)
+    {
+        $user     = $request->user();
+        $employee = Employee::where('email', $user->email)->first();
+
+        if (!$employee) {
+            return response()->json(['message' => 'Employee profile not found'], 404);
+        }
+
+        return response()->json($employee);
     }
 }

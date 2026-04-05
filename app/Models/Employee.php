@@ -22,10 +22,21 @@ class Employee extends Model
         'hire_date',
         'status',
         'address',
+        'permissions',
+    ];
+
+    protected $casts = [
+        'permissions' => 'array',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        $permissions = $this->permissions ?? [];
+        return in_array($permission, $permissions);
     }
 }
