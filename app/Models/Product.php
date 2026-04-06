@@ -19,6 +19,7 @@ class Product extends Model
         'stock',
         'stock_alert',
         'status',
+        'image',
     ];
 
     public function category()

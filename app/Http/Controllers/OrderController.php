@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Mail\OrderConfirmationMail;
 use Illuminate\Support\Facades\Mail;
+use App\Models\Transaction;
 
 class OrderController extends Controller
 {
@@ -86,6 +87,17 @@ class OrderController extends Controller
             }
 
             DB::commit();
+            // Auto-record as income transaction
+Transaction::create([
+    'user_id'        => $request->user()->id,
+    'reference'      => 'TXN-' . $order->order_number,
+    'type'           => 'income',
+    'category'       => 'Sales',
+    'amount'         => $order->total,
+    'description'    => 'Order ' . $order->order_number,
+    'date'           => now()->toDateString(),
+    'payment_method' => $order->payment_method,
+]);
             if ($order->customer?->email) {
     Mail::to($order->customer->email)->send(new OrderConfirmationMail($order));
 }
@@ -117,6 +129,9 @@ class OrderController extends Controller
         ]);
 
         $order->update($request->only('status', 'payment_status'));
+        if ($request->status === 'cancelled') {
+    Transaction::where('reference', 'TXN-' . $order->order_number)->delete();
+}
 
         return response()->json([
             'message' => 'Order updated successfully',

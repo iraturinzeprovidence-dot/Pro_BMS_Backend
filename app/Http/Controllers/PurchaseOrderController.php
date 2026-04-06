@@ -7,6 +7,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Transaction;
 
 class PurchaseOrderController extends Controller
 {
@@ -79,6 +80,18 @@ class PurchaseOrderController extends Controller
             }
 
             DB::commit();
+
+            // Auto-record as expense transaction
+Transaction::create([
+    'user_id'        => $request->user()->id,
+    'reference'      => 'TXN-' . $po->po_number,
+    'type'           => 'expense',
+    'category'       => 'Purchasing',
+    'amount'         => $po->total,
+    'description'    => 'Purchase Order ' . $po->po_number,
+    'date'           => now()->toDateString(),
+    'payment_method' => 'bank_transfer',
+]);
 
             $po->load('supplier', 'items');
 

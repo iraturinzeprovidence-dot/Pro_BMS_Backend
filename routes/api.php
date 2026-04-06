@@ -15,6 +15,7 @@ use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PdfController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ImageController;
 
 // Test route
 Route::get('/test', function () {
@@ -22,6 +23,94 @@ Route::get('/test', function () {
         'message' => 'Pro_BMS API is working!',
         'status'  => 'success',
     ]);
+});
+
+// Customer Portal — authenticated customers
+Route::prefix('customer')->middleware('auth:sanctum')->group(function () {
+    Route::get('/products',      function () {
+        $products = \App\Models\Product::with('category')
+            ->where('status', 'active')
+            ->where('stock', '>', 0)
+            ->get();
+        return response()->json($products);
+    });
+
+    Route::post('/order', function (\Illuminate\Http\Request $request) {
+        $request->validate([
+            'items'          => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.quantity'   => 'required|integer|min:1',
+            'payment_method' => 'required|in:cash,bank_transfer,card,other',
+            'notes'          => 'nullable|string',
+        ]);
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $user     = $request->user();
+            $customer = \App\Models\Customer::where('email', $user->email)->first();
+            $subtotal = 0;
+
+            foreach ($request->items as $item) {
+                $product   = \App\Models\Product::find($item['product_id']);
+                $subtotal += $item['quantity'] * $product->price;
+            }
+
+            $order = \App\Models\Order::create([
+                'order_number'   => 'ORD-' . strtoupper(uniqid()),
+                'customer_id'    => $customer?->id,
+                'user_id'        => $user->id,
+                'status'         => 'pending',
+                'payment_status' => 'unpaid',
+                'payment_method' => $request->payment_method,
+                'subtotal'       => $subtotal,
+                'tax'            => 0,
+                'discount'       => 0,
+                'total'          => $subtotal,
+                'notes'          => $request->notes,
+            ]);
+
+            foreach ($request->items as $item) {
+                $product = \App\Models\Product::find($item['product_id']);
+                \App\Models\OrderItem::create([
+                    'order_id'     => $order->id,
+                    'product_id'   => $product->id,
+                    'product_name' => $product->name,
+                    'quantity'     => $item['quantity'],
+                    'unit_price'   => $product->price,
+                    'total'        => $item['quantity'] * $product->price,
+                ]);
+                $product->decrement('stock', $item['quantity']);
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json([
+                'message'      => 'Order placed successfully!',
+                'order_number' => $order->order_number,
+                'total'        => $order->total,
+            ], 201);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json(['message' => 'Failed to place order: ' . $e->getMessage()], 500);
+        }
+    });
+
+    Route::get('/my-orders', function (\Illuminate\Http\Request $request) {
+        $user     = $request->user();
+        $customer = \App\Models\Customer::where('email', $user->email)->first();
+
+        if (!$customer) {
+            return response()->json([]);
+        }
+
+        $orders = \App\Models\Order::with('items')
+            ->where('customer_id', $customer->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($orders);
+    });
 });
 
 // Public routes
@@ -145,6 +234,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('customers', CustomerController::class);
         Route::apiResource('orders',    OrderController::class);
     });
+
+    // Image uploads
+Route::post('/upload/avatar',           [ImageController::class, 'uploadAvatar']);
+Route::post('/upload/product/{product}',[ImageController::class, 'uploadProductImage']);
 
     // Purchasing — admin, manager, or employee with purchasing permission
     Route::prefix('purchasing')->middleware('role:admin,manager,employee')->group(function () {

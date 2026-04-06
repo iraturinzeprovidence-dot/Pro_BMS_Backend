@@ -23,49 +23,43 @@ class RoleMiddleware
             return $next($request);
         }
 
-        // Check if user's role is in allowed roles
+        // Check if user role is directly in allowed roles
         if (in_array($userRole, $roles)) {
+
+            // For managers — block purchasing and accounting
+            if ($userRole === 'manager') {
+                $path     = $request->path();
+                $segments = explode('/', $path);
+                $module   = $segments[1] ?? null;
+
+                $managerBlocked = ['purchasing', 'accounting'];
+                if (in_array($module, $managerBlocked)) {
+                    return response()->json([
+                        'message' => 'Access denied. Managers cannot access this module.'
+                    ], 403);
+                }
+            }
+
             return $next($request);
         }
 
-        // For employees — check their module permissions
+        // For employees — check their linked employee permissions
         if ($userRole === 'employee') {
             $employee = Employee::where('email', $user->email)->first();
 
-            if ($employee && $employee->permissions) {
-                // Map route prefixes to permission keys
-                $routePermissionMap = [
-                    'inventory'  => 'inventory',
-                    'sales'      => 'sales',
-                    'purchasing' => 'purchasing',
-                    'hr'         => 'hr',
-                    'accounting' => 'accounting',
-                    'analytics'  => 'analytics',
-                    'pdf'        => null, // handled separately below
-                ];
+            if ($employee && !empty($employee->permissions)) {
+                $path     = $request->path();
+                $segments = explode('/', $path);
+                $module   = $segments[1] ?? null;
 
-                $path = $request->path();
-
-                // Extract module from path e.g. api/inventory/products → inventory
-                $segments   = explode('/', $path);
-                $moduleKey  = $segments[1] ?? null; // api/MODULE/...
-
-                if ($moduleKey && isset($routePermissionMap[$moduleKey])) {
-                    $requiredPermission = $routePermissionMap[$moduleKey];
-
-                    // If permission is null it means open to all authenticated
-                    if ($requiredPermission === null) {
-                        return $next($request);
-                    }
-
-                    if (in_array($requiredPermission, $employee->permissions)) {
-                        return $next($request);
-                    }
+                // Direct module match
+                if ($module && in_array($module, $employee->permissions)) {
+                    return $next($request);
                 }
 
-                // PDF exports — check based on pdf sub-path
-                if ($moduleKey === 'pdf') {
-                    $subPath = $segments[2] ?? '';
+                // PDF exports — check sub-path
+                if ($module === 'pdf') {
+                    $subPath    = $segments[2] ?? '';
                     $pdfPermMap = [
                         'order'        => 'sales',
                         'transactions' => 'accounting',
