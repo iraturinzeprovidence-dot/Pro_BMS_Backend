@@ -177,7 +177,7 @@ Route::prefix('public')->group(function () {
             'status'  => 'active',
         ]);
 
-        $role = \App\Models\Role::where('name', 'employee')->first();
+$role = \App\Models\Role::where('name', 'customer')->first();
         $user = \App\Models\User::create([
             'name'     => $request->name,
             'email'    => $request->email,

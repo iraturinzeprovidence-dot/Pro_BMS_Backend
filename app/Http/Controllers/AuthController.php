@@ -33,50 +33,53 @@ class AuthController extends Controller
         ]);
 
         $token = $user->createToken('pro_bms_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'User registered successfully',
-            'token'   => $token,
-            'user'    => [
-                'id'    => $user->id,
-                'name'  => $user->name,
-                'email' => $user->email,
-                'role'  => $role->name,
-            ],
-        ], 201);
+return response()->json([
+    'message' => 'User registered successfully',
+    'token'   => $token,
+    'user'    => [
+        'id'     => $user->id,
+        'name'   => $user->name,
+        'email'  => $user->email,
+        'role'   => $role->name,
+        'avatar' => null,
+    ],
+], 201);
     }
 
     /**
      * Login an existing user.
      */
-    public function login(Request $request)
-    {
-        $request->validate([
-            'email'    => 'required|string|email',
-            'password' => 'required|string',
-        ]);
+public function login(Request $request)
+{
+    $request->validate([
+        'email'    => 'required|string|email',
+        'password' => 'required|string',
+    ]);
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
-        }
-
-        $user  = Auth::user();
-        $role  = Role::find($user->role_id);
-        $token = $user->createToken('pro_bms_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Login successful',
-            'token'   => $token,
-            'user'    => [
-                'id'    => $user->id,
-                'name'  => $user->name,
-                'email' => $user->email,
-                'role'  => $role->name ?? 'employee',
-            ],
+    if (!Auth::attempt($request->only('email', 'password'))) {
+        throw ValidationException::withMessages([
+            'email' => ['The provided credentials are incorrect.'],
         ]);
     }
+
+    $user  = Auth::user();
+    $role  = Role::find($user->role_id);
+    $token = $user->createToken('pro_bms_token')->plainTextToken;
+
+    return response()->json([
+        'message' => 'Login successful',
+        'token'   => $token,
+        'user'    => [
+            'id'     => $user->id,
+            'name'   => $user->name,
+            'email'  => $user->email,
+            'role'   => $role->name ?? 'employee',
+            'avatar' => $user->avatar
+                ? asset('storage/' . $user->avatar)
+                : null,
+        ],
+    ]);
+}
 
     /**
      * Logout the current user.
@@ -93,18 +96,21 @@ class AuthController extends Controller
     /**
      * Get the current authenticated user.
      */
-    public function me(Request $request)
-    {
-        $user = $request->user();
-        $role = Role::find($user->role_id);
+public function me(Request $request)
+{
+    $user = $request->user();
+    $role = Role::find($user->role_id);
 
-        return response()->json([
-            'user' => [
-                'id'    => $user->id,
-                'name'  => $user->name,
-                'email' => $user->email,
-                'role'  => $role->name ?? 'employee',
-            ],
-        ]);
-    }
+    return response()->json([
+        'user' => [
+            'id'     => $user->id,
+            'name'   => $user->name,
+            'email'  => $user->email,
+            'role'   => $role->name ?? 'employee',
+            'avatar' => $user->avatar
+                ? asset('storage/' . $user->avatar)
+                : null,
+        ],
+    ]);
+}
 }
