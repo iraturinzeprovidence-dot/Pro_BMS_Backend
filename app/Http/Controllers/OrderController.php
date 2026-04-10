@@ -121,23 +121,41 @@ Transaction::create([
         return response()->json($order);
     }
 
-    public function update(Request $request, Order $order)
-    {
-        $request->validate([
-            'status'         => 'required|in:pending,processing,completed,cancelled',
-            'payment_status' => 'required|in:unpaid,paid,partial',
-        ]);
+public function update(Request $request, Order $order)
+{
+$request->validate([
+    'status'         => 'required|in:pending,processing,delivering,completed,cancelled',
+    'payment_status' => 'required|in:unpaid,paid,partial',
+]);
 
-        $order->update($request->only('status', 'payment_status'));
-        if ($request->status === 'cancelled') {
-    Transaction::where('reference', 'TXN-' . $order->order_number)->delete();
-}
+    $order->update($request->only('status', 'payment_status'));
 
-        return response()->json([
-            'message' => 'Order updated successfully',
-            'order'   => $order,
-        ]);
+    // Auto-record income when order is completed
+    if ($request->status === 'completed') {
+        \App\Models\Transaction::updateOrCreate(
+            ['reference' => 'TXN-' . $order->order_number],
+            [
+                'user_id'        => $order->user_id,
+                'type'           => 'income',
+                'category'       => 'Sales',
+                'amount'         => $order->total,
+                'description'    => 'Order ' . $order->order_number,
+                'date'           => now()->toDateString(),
+                'payment_method' => $order->payment_method,
+            ]
+        );
     }
+
+    // Remove transaction if cancelled
+    if ($request->status === 'cancelled') {
+        \App\Models\Transaction::where('reference', 'TXN-' . $order->order_number)->delete();
+    }
+
+    return response()->json([
+        'message' => 'Order updated successfully',
+        'order'   => $order,
+    ]);
+}
 
     public function destroy(Order $order)
     {

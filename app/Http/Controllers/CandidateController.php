@@ -10,24 +10,24 @@ use Illuminate\Support\Facades\Mail;
 
 class CandidateController extends Controller
 {
-    public function index(Request $request)
-    {
-        $query = Candidate::with('jobPosition');
+public function index(Request $request)
+{
+    $query = Candidate::with('jobPosition');
 
-        if ($request->search) {
-            $query->where('first_name', 'like', '%' . $request->search . '%')
-                  ->orWhere('last_name',  'like', '%' . $request->search . '%')
-                  ->orWhere('email',      'like', '%' . $request->search . '%');
-        }
-
-        if ($request->status) {
-            $query->where('status', $request->status);
-        }
-
-        $candidates = $query->orderBy('created_at', 'desc')->get();
-
-        return response()->json($candidates);
+    if ($request->search) {
+        $query->where('first_name', 'like', '%' . $request->search . '%')
+              ->orWhere('last_name',  'like', '%' . $request->search . '%')
+              ->orWhere('email',      'like', '%' . $request->search . '%');
     }
+
+    if ($request->status) {
+        $query->where('status', $request->status);
+    }
+
+    $candidates = $query->orderBy('created_at', 'desc')->get();
+
+    return response()->json($candidates);
+}
 
     public function store(Request $request)
     {
