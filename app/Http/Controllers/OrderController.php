@@ -30,6 +30,30 @@ class OrderController extends Controller
         return response()->json($orders);
     }
 
+    public function markPaid(Order $order)
+{
+    $order->update(['payment_status' => 'paid']);
+
+    // Record income transaction
+    Transaction::updateOrCreate(
+        ['reference' => 'TXN-' . $order->order_number],
+        [
+            'user_id'        => $order->user_id,
+            'type'           => 'income',
+            'category'       => 'Sales',
+            'amount'         => $order->total,
+            'description'    => 'Payment received for Order ' . $order->order_number,
+            'date'           => now()->toDateString(),
+            'payment_method' => $order->payment_method,
+        ]
+    );
+
+    return response()->json([
+        'message' => 'Order marked as paid',
+        'order'   => $order->fresh(),
+    ]);
+}
+
     public function store(Request $request)
     {
         $request->validate([
