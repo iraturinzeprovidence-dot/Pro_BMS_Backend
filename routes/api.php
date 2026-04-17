@@ -155,6 +155,38 @@ Route::prefix('public')->group(function () {
             'candidate' => $candidate,
         ], 201);
     });
+    // Public homepage products
+Route::get('/homepage-products', function () {
+    $products = \App\Models\Product::with('category')
+        ->where('status', 'active')
+        ->where('stock', '>', 0)
+        ->orderBy('created_at', 'desc')
+        ->get()
+        ->map(function ($p) {
+            return [
+                'id'          => $p->id,
+                'name'        => $p->name,
+                'description' => $p->description,
+                'price'       => $p->price,
+                'stock'       => $p->stock,
+                'image'       => $p->image
+                    ? asset('storage/' . $p->image)
+                    : null,
+                'category'    => $p->category?->name,
+                'sku'         => $p->sku,
+            ];
+        });
+
+    return response()->json($products);
+});
+
+// Public categories
+Route::get('/homepage-categories', function () {
+    $categories = \App\Models\Category::withCount('products')
+        ->having('products_count', '>', 0)
+        ->get(['id', 'name']);
+    return response()->json($categories);
+});
 
     // Forgot password
 Route::post('/forgot-password', function (\Illuminate\Http\Request $request) {
