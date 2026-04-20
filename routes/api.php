@@ -122,39 +122,62 @@ Route::prefix('public')->group(function () {
         return response()->json($jobs);
     });
 
-    Route::post('/apply', function (\Illuminate\Http\Request $request) {
-        $request->validate([
-            'job_position_id' => 'required|exists:job_positions,id',
-            'first_name'      => 'required|string|max:255',
-            'last_name'       => 'required|string|max:255',
-            'email'           => 'required|email',
-            'phone'           => 'nullable|string|max:20',
-            'cover_letter'    => 'nullable|string',
-        ]);
+Route::post('/apply', function (\Illuminate\Http\Request $request) {
+    $request->validate([
+        'job_position_id' => 'required|exists:job_positions,id',
+        'first_name'      => 'required|string|max:255',
+        'last_name'       => 'required|string|max:255',
+        'email'           => 'required|email',
+        'phone'           => 'nullable|string|max:20',
+        'cover_letter'    => 'nullable|string',
+        'cv'              => 'nullable|file|mimes:pdf|max:5120',
+        'certificate'     => 'nullable|file|mimes:pdf|max:5120',
+        'id_document'     => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+        'passport_photo'  => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
+    ]);
 
-        $existing = \App\Models\Candidate::where('email', $request->email)
-            ->where('job_position_id', $request->job_position_id)
-            ->first();
+    $existing = \App\Models\Candidate::where('email', $request->email)
+        ->where('job_position_id', $request->job_position_id)
+        ->first();
 
-        if ($existing) {
-            return response()->json(['message' => 'You have already applied for this position.'], 422);
+    if ($existing) {
+        return response()->json(['message' => 'You have already applied for this position.'], 422);
+    }
+
+    $data = [
+        'job_position_id' => $request->job_position_id,
+        'first_name'      => $request->first_name,
+        'last_name'       => $request->last_name,
+        'email'           => $request->email,
+        'phone'           => $request->phone,
+        'cover_letter'    => $request->cover_letter,
+        'status'          => 'applied',
+    ];
+
+    foreach ([
+        'cv'           => 'candidates/cv',
+        'certificate'  => 'candidates/certificates',
+        'id_document'  => 'candidates/id_documents',
+        'passport_photo' => 'candidates/passport_photos',
+    ] as $field => $folder) {
+        if ($request->hasFile($field)) {
+            $file = $request->file($field);
+            if ($field === 'passport_photo') {
+                $data['passport_photo_path'] = $file->store($folder, 'public');
+            } else {
+                $data[$field . '_path']          = $file->store($folder, 'public');
+                $data[$field . '_original_name'] = $file->getClientOriginalName();
+            }
         }
+    }
 
-        $candidate = \App\Models\Candidate::create([
-            'job_position_id' => $request->job_position_id,
-            'first_name'      => $request->first_name,
-            'last_name'       => $request->last_name,
-            'email'           => $request->email,
-            'phone'           => $request->phone,
-            'cover_letter'    => $request->cover_letter,
-            'status'          => 'applied',
-        ]);
+    $candidate = \App\Models\Candidate::create($data);
 
-        return response()->json([
-            'message'   => 'Application submitted successfully!',
-            'candidate' => $candidate,
-        ], 201);
-    });
+    return response()->json([
+        'message'   => 'Application submitted successfully! We will contact you soon.',
+        'candidate' => $candidate,
+    ], 201);
+});
     // Public homepage products
 Route::get('/homepage-products', function () {
     $products = \App\Models\Product::with('category')
@@ -472,11 +495,13 @@ Route::post('/upload/product/{product}',[ImageController::class, 'uploadProductI
         Route::get('/stats',                        [EmployeeController::class,    'stats']);
         Route::get('/departments',                  [EmployeeController::class,    'departments']);
         Route::get('/job-stats',                    [JobPositionController::class, 'stats']);
-        Route::get('/candidate-stats',              [CandidateController::class,   'stats']);
-        Route::post('/candidates/{candidate}/hire', [CandidateController::class,   'hire']);
         Route::apiResource('employees',             EmployeeController::class);
         Route::apiResource('job-positions',         JobPositionController::class);
-        Route::apiResource('candidates',            CandidateController::class);
+        Route::get('/candidate-stats',              [CandidateController::class, 'stats']);
+        Route::post('/candidates/{candidate}/hire', [CandidateController::class, 'hire']);
+        Route::get('/candidates/{candidate}/download/{type}', [CandidateController::class, 'downloadFile']);
+        Route::get('/candidates/{candidate}/download-photo',  [CandidateController::class, 'downloadPassportPhoto']);
+        Route::apiResource('candidates', CandidateController::class);
     });
 
     // Accounting — admin, manager, or employee with accounting permission
